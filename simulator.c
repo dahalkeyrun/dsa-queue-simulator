@@ -1,31 +1,105 @@
 #include <SDL2/SDL.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+#define SCREEN_WIDTH 1500
+#define SCREEN_HEIGHT 1200
+
+// Function to render a lane
+void renderLane(SDL_Renderer *renderer)
+{
+    // Draw the road
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    SDL_Rect roadRect = {0, 400, SCREEN_WIDTH, 400};
+    SDL_RenderFillRect(renderer, &roadRect);
+
+    // Draw a dashed white line in the center of the road
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    int dashWidth = 20;
+    int gapWidth = 20;
+    int yPosition = 500;
+    int yPosition2 = 700; // Adjusted for a 3-lane road
+    for (int x = 0; x < SCREEN_WIDTH; x += dashWidth + gapWidth)
+    {
+        SDL_Rect dash = {x, yPosition, dashWidth, 5};
+        SDL_RenderFillRect(renderer, &dash);
+    }
+
+    for (int x = 0; x < SCREEN_WIDTH; x += dashWidth + gapWidth)
+    {
+        SDL_Rect dash = {x, yPosition2, dashWidth, 5};
+        SDL_RenderFillRect(renderer, &dash);
+    }
+}
 
 int main()
 {
-    SDL_Window *window = nullptr;
-    SDL_Renderer *renderer = nullptr;
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    {
+        printf("SDL_Init Error : %s\n", SDL_GetError());
+        return 1;
+    }
 
-    int pixel_size = 10;
-    SDL_Rect rect;
-    rect.x = 250;
-    rect.y = 250;
-    rect.w = pixel_size;
-    rect.h = pixel_size;
+    // Create a window
+    SDL_Window *window = SDL_CreateWindow("Traffic Simulator UI",
+                                          SDL_WINDOWPOS_CENTERED,
+                                          SDL_WINDOWPOS_CENTERED,
+                                          SCREEN_WIDTH,
+                                          SCREEN_HEIGHT,
+                                          SDL_WINDOW_SHOWN);
+    if (window == NULL)
+    {
+        printf("SDL_CreateWindow Error : %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
 
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(500, 500, 0, &window, &renderer);
+    // Create a renderer
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
+    if (renderer == NULL)
+    {
+        SDL_DestroyWindow(window);
+        printf("SDL_CreateRenderer Error : %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
 
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    // Main loop flag
+    bool quit = false;
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &rect);
+    // Event handler
+    SDL_Event e;
 
-    SDL_RenderPresent(renderer);
-    SDL_Delay(10000);
+    // While application is running
+    while (!quit)
+    {
+        // Handle events on queue
+        while (SDL_PollEvent(&e) != 0)
+        {
+            // User requests quit
+            if (e.type == SDL_QUIT)
+            {
+                quit = true;
+            }
+        }
 
+        // Clear screen
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
+        // Render the lane
+        renderLane(renderer);
+
+        // Update screen
+        SDL_RenderPresent(renderer);
+    }
+
+    // Destroy window and renderer
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+
+    // Quit SDL subsystems
     SDL_Quit();
 
     return 0;
