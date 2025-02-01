@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #define SCREEN_WIDTH 2000
-#define SCREEN_HEIGHT 1500
+#define SCREEN_HEIGHT 1700
 
 // Function to render a lane
 void renderLane(SDL_Renderer *renderer)
@@ -15,8 +15,8 @@ void renderLane(SDL_Renderer *renderer)
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
 
     // Define road dimensions
-    SDL_Rect horizontalRoad = {(SCREEN_WIDTH - 500) / 2, 0, 500, SCREEN_HEIGHT};
-    SDL_Rect verticalRoad = {0, (SCREEN_HEIGHT - 500) / 2, SCREEN_WIDTH, 500};
+    SDL_Rect horizontalRoad = {(SCREEN_WIDTH - 500) / 2, 0, 400, SCREEN_HEIGHT};
+    SDL_Rect verticalRoad = {0, (SCREEN_HEIGHT - 500) / 2, SCREEN_WIDTH, 400};
 
     // Draw roads
     SDL_RenderFillRect(renderer, &horizontalRoad);
