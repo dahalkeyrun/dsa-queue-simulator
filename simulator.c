@@ -10,18 +10,18 @@ void renderLane(SDL_Renderer *renderer)
 {
     // Draw the road
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-    SDL_Rect roadRect = {0, 400, SCREEN_WIDTH, 400};
+    SDL_Rect roadRect = {0, 500, SCREEN_WIDTH, 500};
     SDL_RenderFillRect(renderer, &roadRect);
 
     // Draw a dashed white line in the center of the road
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     int dashWidth = 20;
     int gapWidth = 20;
-    int yPosition = 500;
-    int yPosition2 = 700; // Adjusted for a 3-lane road
+    int yPosition1 = 700;
+    int yPosition2 = 850; // Adjusted for a 3-lane road
     for (int x = 0; x < SCREEN_WIDTH; x += dashWidth + gapWidth)
     {
-        SDL_Rect dash = {x, yPosition, dashWidth, 5};
+        SDL_Rect dash = {x, yPosition1, dashWidth, 5};
         SDL_RenderFillRect(renderer, &dash);
     }
 
