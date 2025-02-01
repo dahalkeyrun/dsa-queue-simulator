@@ -2,33 +2,71 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define SCREEN_WIDTH 1500
-#define SCREEN_HEIGHT 1200
+#define SCREEN_WIDTH 2000
+#define SCREEN_HEIGHT 1500
 
 // Function to render a lane
 void renderLane(SDL_Renderer *renderer)
 {
-    // Draw the road
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-    SDL_Rect roadRect = {0, 500, SCREEN_WIDTH, 500};
-    SDL_RenderFillRect(renderer, &roadRect);
+    // Ensure solid colors (Disable blending)
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
-    // Draw a dashed white line in the center of the road
+    // Set the road color (dark gray)
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+
+    // Define road dimensions
+    SDL_Rect horizontalRoad = {(SCREEN_WIDTH - 500) / 2, 0, 500, SCREEN_HEIGHT};
+    SDL_Rect verticalRoad = {0, (SCREEN_HEIGHT - 500) / 2, SCREEN_WIDTH, 500};
+
+    // Draw roads
+    SDL_RenderFillRect(renderer, &horizontalRoad);
+    SDL_RenderFillRect(renderer, &verticalRoad);
+
+    // Set white for dashed lines
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    int dashWidth = 20;
-    int gapWidth = 20;
-    int yPosition1 = 700;
-    int yPosition2 = 850; // Adjusted for a 3-lane road
-    for (int x = 0; x < SCREEN_WIDTH; x += dashWidth + gapWidth)
+
+    int dashLength = 40;
+    int gapLength = 20;
+    int laneWidth = horizontalRoad.w / 3; // Corrected lane width calculation
+    int laneHeight = verticalRoad.h / 3;  // Corrected lane height calculation
+
+    // 🔹 Centered lane positions
+    int xLane1 = horizontalRoad.x + laneWidth;     // Center of first horizontal lane
+    int xLane2 = horizontalRoad.x + 2 * laneWidth; // Center of second horizontal lane
+
+    int yLane1 = verticalRoad.y + laneHeight;     // Center of first vertical lane
+    int yLane2 = verticalRoad.y + 2 * laneHeight; // Center of second vertical lane
+
+    int junctionStartX = horizontalRoad.x;
+    int junctionEndX = horizontalRoad.x + horizontalRoad.w;
+    int junctionStartY = verticalRoad.y;
+    int junctionEndY = verticalRoad.y + verticalRoad.h;
+
+    //  Corrected Dashed lines for horizontal lanes
+    for (int x = 0; x < SCREEN_WIDTH; x += dashLength + gapLength)
     {
-        SDL_Rect dash = {x, yPosition1, dashWidth, 5};
-        SDL_RenderFillRect(renderer, &dash);
+
+        if (x + dashLength < junctionStartX || x > junctionEndX)
+        {
+
+            SDL_Rect dash1 = {x, yLane1 - 2, dashLength, 5}; // Adjust for exact center
+            SDL_Rect dash2 = {x, yLane2 - 2, dashLength, 5};
+            SDL_RenderFillRect(renderer, &dash1);
+            SDL_RenderFillRect(renderer, &dash2);
+        }
     }
 
-    for (int x = 0; x < SCREEN_WIDTH; x += dashWidth + gapWidth)
+    //  Corrected Dashed lines for vertical lanes
+    for (int y = 0; y < SCREEN_HEIGHT; y += dashLength + gapLength)
     {
-        SDL_Rect dash = {x, yPosition2, dashWidth, 5};
-        SDL_RenderFillRect(renderer, &dash);
+        if (y + dashLength < junctionStartY || y > junctionEndY)
+        {
+
+            SDL_Rect dash1 = {xLane1 - 2, y, 5, dashLength}; // Adjust for exact center
+            SDL_Rect dash2 = {xLane2 - 2, y, 5, dashLength};
+            SDL_RenderFillRect(renderer, &dash1);
+            SDL_RenderFillRect(renderer, &dash2);
+        }
     }
 }
 
