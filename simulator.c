@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <SDL2/SDL_image.h>
 
 #define SCREEN_WIDTH 2000
 #define SCREEN_HEIGHT 1700
@@ -79,6 +80,12 @@ int main()
         return 1;
     }
 
+    if (IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG == 0)
+    {
+        printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+        return -1;
+    }
+
     // Create a window
     SDL_Window *window = SDL_CreateWindow("Traffic Simulator UI",
                                           SDL_WINDOWPOS_CENTERED,
@@ -102,6 +109,25 @@ int main()
         SDL_Quit();
         return 1;
     }
+
+    SDL_Surface *image_surface = IMG_Load("car.png");
+    if (image_surface == NULL)
+    {
+        printf("Unable to load image! SDL_image Error : %s\n", IMG_GetError());
+        return -1;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image_surface);
+    if (texture == NULL)
+    {
+        printf("Unable to create texture from surface! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+    SDL_FreeSurface(image_surface);
+
+    SDL_Rect dstRect = {100, 100, 200, 200};
+    SDL_RenderCopy(renderer, texture, NULL, &dstRect);
+    SDL_RenderPresent(renderer);
 
     // Main loop flag
     bool quit = false;
@@ -138,6 +164,7 @@ int main()
     SDL_DestroyWindow(window);
 
     // Quit SDL subsystems
+    IMG_Quit();
     SDL_Quit();
 
     return 0;
