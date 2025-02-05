@@ -209,12 +209,12 @@ void renderVehicles(SDL_Renderer *renderer) {
         Vehicle *v = &vehicles[i];
         if (v->id < 0) continue;
 
-        double angle = 0;
+        double angle = 0.0;
         switch (v->direction) {
-            case 0: angle = 90.0; break;  // Down
-            case 1: angle = 0.0; break;   // Right
-            case 2: angle = 270.0; break; // Up
-            case 3: angle = 180.0; break; // Left
+            case 0: angle = 180.0; break;  // Down
+            case 1: angle = 90.0; break;   // Right
+            case 2: angle = 360.0; break; // Up
+            case 3: angle = 270.0; break; // Left
         }
         SDL_RenderCopyEx(renderer, carTexture, NULL, &v->rect, angle, NULL, SDL_FLIP_NONE);
     }
