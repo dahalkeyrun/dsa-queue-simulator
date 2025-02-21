@@ -6,9 +6,17 @@
 #include <stdio.h>
 #include <math.h>
 
-#define MAX_ACTIVE_VEHICLES 8 // Increased slightly to populate all roads
+#define MAX_VEHICLES 200
+#define MAX_ACTIVE_VEHICLES 50
 #define MAX_LANES 12
-#define VEHICLE_SPAWN_INTERVAL 2000 // 2 seconds between spawns for more frequent population
+#define VEHICLE_SPAWN_INTERVAL 3000 // 3 seconds between spawns
+#define SCREEN_WIDTH 2000
+#define SCREEN_HEIGHT 1700
+#define VEHICLE_WIDTH 50
+#define VEHICLE_HEIGHT 100
+#define VEHICLE_LOG "vehicles.log"
+
+//extern Uint32 lastSpawnTime = 0;
 
 void logVehicleToFile(Vehicle *v) {
     FILE *logFile = fopen(VEHICLE_LOG, "a");
@@ -92,26 +100,23 @@ void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority) {
 
 void generateVehicle(PriorityQueue *pq, Vehicle vehicles[], int *lastVehicleId) {
     Uint32 currentTime = SDL_GetTicks();
-    static bool firstSpawn = true;
-    static int spawnCounter = 0; // To cycle through roads
-    if (!firstSpawn && (currentTime - lastSpawnTime < VEHICLE_SPAWN_INTERVAL)) {
-        printf("Too soon to spawn: %u - %u < %d\n", currentTime, lastSpawnTime, VEHICLE_SPAWN_INTERVAL);
+    if (currentTime - lastSpawnTime < VEHICLE_SPAWN_INTERVAL)
         return;
-    }
 
+    // Count active vehicles
     int activeVehicles = 0;
     for (int i = 0; i < MAX_VEHICLES; i++) {
         if (vehicles[i].id >= 0) {
             activeVehicles++;
         }
     }
+
+    // Only generate a new vehicle if we have less than MAX_ACTIVE_VEHICLES
     if (activeVehicles >= MAX_ACTIVE_VEHICLES) {
-        printf("Max active vehicles reached: %d\n", activeVehicles);
         return;
     }
 
     lastSpawnTime = currentTime;
-    firstSpawn = false;
 
     int freeSlot = -1;
     for (int i = 0; i < MAX_VEHICLES; i++) {
@@ -120,98 +125,97 @@ void generateVehicle(PriorityQueue *pq, Vehicle vehicles[], int *lastVehicleId) 
             break;
         }
     }
-    if (freeSlot == -1) {
-        printf("No free slots available\n");
-        return;
-    }
+
+    if (freeSlot == -1)
+        return; // No free slots
 
     Vehicle *v = &vehicles[freeSlot];
     *lastVehicleId = *lastVehicleId + 1;
     v->id = *lastVehicleId;
-    v->speed = 50.0f / DESIRED_FPS; // 50 pixels/sec
+    v->speed = (float)(rand() % 3 + 1) / DESIRED_FPS; // Speed between 1 and 3 units per second, adjusted for FPS
+    v->direction = rand() % 4; 
+    v->road = 'A' + (rand() % 4);
+    v->lane = rand() % 3 + 1; 
 
-    // Cycle through roads A, B, C, D
-    char roads[] = {'A', 'B', 'C', 'D'};
-    int directions[] = {0, 1, 2, 3}; // Down, Right, Up, Left
-    v->road = roads[spawnCounter % 4];
-    v->direction = directions[spawnCounter % 4];
-    v->lane = (spawnCounter % 3) + 1; // Cycle through lanes 1, 2, 3
-    spawnCounter++;
+    int laneWidth = 400 / 3;
+    int laneHeight = 400 / 3;
 
-    int laneWidth = 400 / 3; // Width of each lane
-    int laneHeight = 400 / 3; // Height of each lane
-
-    // Calculate the center of the lane for proper alignment
     switch (v->direction) {
-    case 0: // Down (Road A)
+    case 0: // Down
         v->x = ROAD_X_START + (v->lane - 1) * laneWidth + (laneWidth - VEHICLE_WIDTH) / 2;
         v->y = -VEHICLE_HEIGHT;
         break;
-    case 1: // Right (Road B)
-        v->x = -VEHICLE_WIDTH;
-        v->y = ROAD_Y_START + (v->lane - 1) * laneHeight + (laneHeight - VEHICLE_HEIGHT) / 2;
+    case 1: // Right
+        v->x = -VEHICLE_HEIGHT;
+        v->y = ROAD_Y_START + (v->lane - 1) * laneHeight + (laneHeight - VEHICLE_WIDTH) / 2;
         break;
-    case 2: // Up (Road C)
+    case 2: // Up
         v->x = ROAD_X_START + (v->lane - 1) * laneWidth + (laneWidth - VEHICLE_WIDTH) / 2;
         v->y = SCREEN_HEIGHT;
         break;
-    case 3: // Left (Road D)
+    case 3: // Left
         v->x = SCREEN_WIDTH;
-        v->y = ROAD_Y_START + (v->lane - 1) * laneHeight + (laneHeight - VEHICLE_HEIGHT) / 2;
+        v->y = ROAD_Y_START + (v->lane - 1) * laneHeight + (laneHeight - VEHICLE_WIDTH) / 2;
         break;
     }
 
-    v->rect = (SDL_Rect){(int)v->x, (int)v->y, VEHICLE_WIDTH, VEHICLE_HEIGHT};
-    printf("Spawned vehicle %d: road=%c, lane=%d, dir=%d, pos=(%f, %f), speed=%f\n",
-           v->id, v->road, v->lane, v->direction, v->x, v->y, v->speed);
     logVehicleToFile(v);
 }
+
 void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]) {
     for (int i = 0; i < MAX_VEHICLES; i++) {
         Vehicle *v = &vehicles[i];
         if (v->id < 0)
             continue;
 
-        float maxMovePerFrame = 50.0f / DESIRED_FPS;
+        float maxMovePerFrame = 10.0f / DESIRED_FPS; // Adjust for frame rate
         float move = fminf(v->speed, maxMovePerFrame);
-        printf("Updating vehicle %d: speed=%f, move=%f, pos=(%f, %f)\n",
-               v->id, v->speed, move, v->x, v->y);
 
         switch (v->direction) {
         case 0: // Down
             v->y += move;
             if (v->y > SCREEN_HEIGHT) {
-                v->id = -1; // Remove vehicle if it goes off-screen
-                logVehicleToFile(v);
+                v->id = -1; // Mark as inactive
+                logVehicleToFile(v); // Log the vehicle's exit
             }
             break;
         case 1: // Right
             v->x += move;
             if (v->x > SCREEN_WIDTH) {
-                v->id = -1; // Remove vehicle if it goes off-screen
+                v->id = -1;
                 logVehicleToFile(v);
             }
             break;
         case 2: // Up
             v->y -= move;
             if (v->y + VEHICLE_HEIGHT < 0) {
-                v->id = -1; // Remove vehicle if it goes off-screen
+                v->id = -1;
                 logVehicleToFile(v);
             }
             break;
         case 3: // Left
             v->x -= move;
-            if (v->x + VEHICLE_WIDTH < 0) {
-                v->id = -1; // Remove vehicle if it goes off-screen
+            if (v->x + VEHICLE_HEIGHT < 0) {
+                v->id = -1;
                 logVehicleToFile(v);
             }
             break;
         }
 
-        // Update the vehicle's rectangle for rendering
-        v->rect.x = (int)v->x;
-        v->rect.y = (int)v->y;
+        // Simple collision avoidance
+        for (int j = 0; j < MAX_VEHICLES; j++) {
+            if (i != j && vehicles[j].id >= 0) {
+                float dx = v->x - vehicles[j].x;
+                float dy = v->y - vehicles[j].y;
+                float dist = sqrt(dx*dx + dy*dy);
+                if (dist < VEHICLE_WIDTH * 2) { // Arbitrary close distance, considering vehicle size
+                    // Slow down if too close
+                    v->speed *= 0.9f;
+                }
+            }
+        }
 
+        // Log the vehicle's current state after each update
         if (v->id != -1) {
             logVehicleToFile(v);
         }
