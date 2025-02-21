@@ -6,15 +6,17 @@
 
 #define DESIRED_FPS 60
 #define VEHICLE_LOG "vehicles.log"
+#define MAX_VEHICLES 200
+#define SCREEN_WIDTH 2000
+#define SCREEN_HEIGHT 1700
+#define VEHICLE_WIDTH 50
+#define VEHICLE_HEIGHT 100
 
 typedef struct {
     float x, y;
 } TrafficLight;
 
-extern TrafficLight trafficLights[8]; 
-
-typedef struct Vehicle
-{
+typedef struct Vehicle {
     int id;
     char road;
     int lane;
@@ -24,24 +26,22 @@ typedef struct Vehicle
     SDL_Rect rect; // Keep this for rendering
 } Vehicle;
 
-typedef struct
-{
+typedef struct {
     char road;
     int lane;
     int priority;
 } LanePriority;
 
-typedef struct
-{
+typedef struct {
     LanePriority *data;
     int size;
     int capacity;
 } PriorityQueue;
 
+// External variables
 extern const int ROAD_X_START;
 extern const int ROAD_Y_START;
-
-extern Vehicle vehicles[];
+extern Vehicle vehicles[MAX_VEHICLES];
 extern int lastVehicleId;
 extern SDL_Texture *carTexture;
 extern TrafficLight trafficLights[8];
@@ -49,6 +49,7 @@ extern Uint32 lastBlink;
 extern bool isLightRed;
 extern Uint32 lastSpawnTime;
 
+// Function prototypes
 void initPriorityQueue(PriorityQueue *pq, int maxSize);
 void enqueuePriority(PriorityQueue *pq, LanePriority item);
 LanePriority dequeuePriority(PriorityQueue *pq);
@@ -57,5 +58,6 @@ void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority);
 void generateVehicle(PriorityQueue *pq, Vehicle vehicles[], int *lastVehicleId);
 void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]);
 void *readVehicleLog(void *arg);
+void logVehicleToFile(Vehicle *v);
 
 #endif // QUEUE_H
