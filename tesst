@@ -1,0 +1,18 @@
+Revert "test2"
+
+This reverts commit 1b93fe9f2235a27f08ae1bf03b83be18a9195f0f.
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch test2
+# Changes to be committed:
+#	modified:   queue.h
+#	modified:   simulator
+#	modified:   simulator.c
+#	modified:   traffic_generator.c
+#	modified:   vehicles.log
+#
+# Untracked files:
+#	queue.c
+#
