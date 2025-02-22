@@ -43,3 +43,29 @@ void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority) {
         }
     }
 }
+
+// Update vehicle positions
+void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]) {
+    for (int i = 0; i < MAX_VEHICLES; i++) {
+        if (vehicles[i].id == -1) continue;
+
+        switch (vehicles[i].direction) {
+        case 0: // Down
+            vehicles[i].y += vehicles[i].speed;
+            if (vehicles[i].y > SCREEN_HEIGHT) vehicles[i].id = -1;
+            break;
+        case 1: // Right
+            vehicles[i].x += vehicles[i].speed;
+            if (vehicles[i].x > SCREEN_WIDTH) vehicles[i].id = -1;
+            break;
+        case 2: // Up
+            vehicles[i].y -= vehicles[i].speed;
+            if (vehicles[i].y + VEHICLE_HEIGHT < 0) vehicles[i].id = -1;
+            break;
+        case 3: // Left
+            vehicles[i].x -= vehicles[i].speed;
+            if (vehicles[i].x + VEHICLE_WIDTH < 0) vehicles[i].id = -1;
+            break;
+        }
+    }
+}

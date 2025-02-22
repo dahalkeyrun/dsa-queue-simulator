@@ -23,30 +23,34 @@ void generateVehicle(PriorityQueue *pq, Vehicle vehicles[], int *lastVehicleId) 
     v->id = *lastVehicleId;
     v->speed = VEHICLE_SPEED;
 
+    // Randomly select a road and lane
     char roads[] = {'A', 'B', 'C', 'D'};
-    int directions[] = {0, 1, 2, 3}; // Down, Right, Up, Left
+    int lanes[] = {1, 2, 3};
     v->road = roads[rand() % 4];
-    v->direction = directions[rand() % 4];
-    v->lane = (rand() % 3) + 1;
+    v->lane = lanes[rand() % 3];
 
-    // Set initial position based on direction
-    switch (v->direction) {
-        case 0: // Down
-            v->x = ROAD_X_START + (v->lane * 100);
-            v->y = 0;
-            break;
-        case 1: // Right
-            v->x = 0;
-            v->y = ROAD_Y_START + (v->lane * 100);
-            break;
-        case 2: // Up
-            v->x = ROAD_X_START + (v->lane * 100);
-            v->y = SCREEN_HEIGHT;
-            break;
-        case 3: // Left
-            v->x = SCREEN_WIDTH;
-            v->y = ROAD_Y_START + (v->lane * 100);
-            break;
+    // Set direction and initial position based on road and lane
+    switch (v->road) {
+    case 'A': // Horizontal road (left to right)
+        v->direction = 1; // Right
+        v->x = 0;
+        v->y = ROAD_Y_START + (v->lane * 100);
+        break;
+    case 'B': // Vertical road (top to bottom)
+        v->direction = 0; // Down
+        v->x = ROAD_X_START + (v->lane * 100);
+        v->y = 0;
+        break;
+    case 'C': // Horizontal road (right to left)
+        v->direction = 3; // Left
+        v->x = SCREEN_WIDTH;
+        v->y = ROAD_Y_START + (v->lane * 100);
+        break;
+    case 'D': // Vertical road (bottom to top)
+        v->direction = 2; // Up
+        v->x = ROAD_X_START + (v->lane * 100);
+        v->y = SCREEN_HEIGHT;
+        break;
     }
 
     // Initialize the vehicle's rectangle

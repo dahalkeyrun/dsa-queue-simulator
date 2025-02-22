@@ -13,12 +13,15 @@
 #define LIGHT_SIZE 50
 #define LIGHT_OFFSET 10
 #define LIGHT_DURATION 5000  // 5 seconds
-#define ZEBRA_CROSSING_WIDTH 10
-#define ZEBRA_CROSSING_GAP 20
+#define ZEBRA_CROSSING_WIDTH 20
+#define ZEBRA_CROSSING_GAP 10
 #define VEHICLE_SPEED 2.0f
 #define ROAD_WIDTH 400
 #define ROAD_X_START ((SCREEN_WIDTH - ROAD_WIDTH) / 2)
 #define ROAD_Y_START ((SCREEN_HEIGHT - ROAD_WIDTH) / 2)
+#define PRIORITY_THRESHOLD 10
+#define NORMAL_THRESHOLD 5
+#define CLEARING_TIME 2000
 
 typedef struct {
     float x, y;
@@ -26,12 +29,13 @@ typedef struct {
 
 typedef struct Vehicle {
     int id;
-    char road;
-    int lane;
+    char road;      // Road identifier (A, B, C, D)
+    int lane;       // Lane number (1, 2, 3)
     float x, y;
     float speed;
-    int direction; // 0 = Down, 1 = Right, 2 = Up, 3 = Left
+    int direction;  // 0 = Down, 1 = Right, 2 = Up, 3 = Left
     SDL_Rect rect;
+    bool isPriority; // True for priority lane vehicles
 } Vehicle;
 
 typedef struct {
@@ -68,4 +72,4 @@ void adjustVehicleMovementByLights(PriorityQueue *pq, Vehicle vehicles[]);
 bool isNearLight(Vehicle *v);
 bool isLightRedForVehicle(Vehicle *v);
 
-#endif // QUEUE_H
+#endif
