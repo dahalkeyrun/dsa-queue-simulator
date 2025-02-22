@@ -12,7 +12,7 @@
 #define VEHICLE_HEIGHT 100
 #define LIGHT_SIZE 50
 #define LIGHT_OFFSET 10
-#define LIGHT_DURATION 5000  // 5 seconds
+#define LIGHT_DURATION 5000
 #define ZEBRA_CROSSING_WIDTH 20
 #define ZEBRA_CROSSING_GAP 10
 #define VEHICLE_SPEED 2.0f
@@ -29,13 +29,13 @@ typedef struct {
 
 typedef struct Vehicle {
     int id;
-    char road;      // Road identifier (A, B, C, D)
-    int lane;       // Lane number (1, 2, 3)
+    char road;
+    int lane;
     float x, y;
     float speed;
-    int direction;  // 0 = Down, 1 = Right, 2 = Up, 3 = Left
+    int direction;
     SDL_Rect rect;
-    bool isPriority; // True for priority lane vehicles
+    bool isPriority;
 } Vehicle;
 
 typedef struct {
@@ -58,6 +58,7 @@ extern TrafficLight trafficLights[8];
 extern Uint32 lastBlink;
 extern bool isLightRed;
 extern Uint32 lastSpawnTime;
+extern Uint32 clearingStartTime;
 
 // Function prototypes
 void initPriorityQueue(PriorityQueue *pq, int maxSize);
