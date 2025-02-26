@@ -22,6 +22,7 @@
 #define PRIORITY_THRESHOLD 10
 #define NORMAL_THRESHOLD 5
 #define CLEARING_TIME 2000
+#define MIN_VEHICLE_SPACING 100
 
 typedef struct {
     float x, y;
@@ -63,7 +64,7 @@ extern Uint32 clearingStartTime;
 // Function prototypes
 void initPriorityQueue(PriorityQueue *pq, int maxSize);
 void enqueuePriority(PriorityQueue *pq, LanePriority item);
-LanePriority dequeuePriority(PriorityQueue *pq);
+LanePriority dequeuePriority(PriorityQueue *pq, Vehicle vehicles[]);
 bool isEmptyPriority(PriorityQueue *pq);
 void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority);
 
@@ -72,5 +73,13 @@ void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]);
 void adjustVehicleMovementByLights(PriorityQueue *pq, Vehicle vehicles[]);
 bool isNearLight(Vehicle *v);
 bool isLightRedForVehicle(Vehicle *v);
+
+// Vehicle redirection functions
+void redirectVehicle(Vehicle *v);
+bool shouldRedirect();
+
+// Priority road management
+int countWaitingVehicles(Vehicle vehicles[], char road);
+void handlePriorityRoads(PriorityQueue *pq, Vehicle vehicles[]);
 
 #endif

@@ -29,7 +29,6 @@ void renderTrafficLights(SDL_Renderer *renderer);
 void renderVehicles(SDL_Renderer *renderer);
 bool isNearLight(Vehicle *v);
 bool isLightRedForVehicle(Vehicle *v);
-void adjustVehicleMovementByLights(PriorityQueue *pq, Vehicle vehicles[]);
 
 void renderZebraCrossing(SDL_Renderer *renderer) {
     for (int i = 0; i < ROAD_WIDTH; i += (ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP)) {
@@ -110,57 +109,18 @@ void renderTrafficLights(SDL_Renderer *renderer) {
 }
 
 void renderVehicles(SDL_Renderer *renderer) {
-    int laneWidth = ROAD_WIDTH / 3;
-    int verticalLaneCenters[3] = {
-        ROAD_X_START + (0 * laneWidth) + (laneWidth / 2),
-        ROAD_X_START + (1 * laneWidth) + (laneWidth / 2),
-        ROAD_X_START + (2 * laneWidth) + (laneWidth / 2)
-    };
-    int horizontalLaneCenters[3] = {
-        ROAD_Y_START + (0 * laneWidth) + (laneWidth / 2),
-        ROAD_Y_START + (1 * laneWidth) + (laneWidth / 2),
-        ROAD_Y_START + (2 * laneWidth) + (laneWidth / 2)
-    };
-
     for (int i = 0; i < MAX_VEHICLES; i++) {
         Vehicle *v = &vehicles[i];
         if (v->id < 0) continue;
 
-        if (v->lane < 0 || v->lane > 2) {
-            printf("Invalid lane %d for Vehicle ID %d, clamping to 0\n", v->lane, v->id);
-            v->lane = 0;
-        }
-
-        switch (v->direction) {
-        case 0: // Down
-            v->x = verticalLaneCenters[v->lane] - (VEHICLE_WIDTH / 2);
-            v->rect.x = (int)v->x;
-            v->rect.y = (int)v->y;
-            break;
-        case 1: // Right
-            v->y = horizontalLaneCenters[v->lane] - (VEHICLE_HEIGHT / 2);
-            v->rect.x = (int)v->x;
-            v->rect.y = (int)v->y;
-            break;
-        case 2: // Up
-            v->x = verticalLaneCenters[v->lane] - (VEHICLE_WIDTH / 2);
-            v->rect.x = (int)v->x;
-            v->rect.y = (int)v->y;
-            break;
-        case 3: // Left
-            v->y = horizontalLaneCenters[v->lane] - (VEHICLE_HEIGHT / 2);
-            v->rect.x = (int)v->x;
-            v->rect.y = (int)v->y;
-            break;
-        }
-
         double angle = 0.0;
         switch (v->direction) {
-        case 0: angle = 180.0; break;
-        case 1: angle = 90.0; break;
-        case 2: angle = 0.0; break;
-        case 3: angle = 270.0; break;
+        case 0: angle = 180.0; break; // Down
+        case 1: angle = 90.0; break;  // Right
+        case 2: angle = 0.0; break;   // Up
+        case 3: angle = 270.0; break; // Left
         }
+        
         if (SDL_RenderCopyEx(renderer, carTexture, NULL, &v->rect, angle, NULL, SDL_FLIP_NONE) < 0) {
             printf("SDL_RenderCopyEx failed: %s\n", SDL_GetError());
         }
@@ -168,26 +128,33 @@ void renderVehicles(SDL_Renderer *renderer) {
 }
 
 bool isNearLight(Vehicle *v) {
-    return (v->x > ROAD_X_START - 50 && v->x < ROAD_X_START + ROAD_WIDTH + 50 &&
-            v->y > ROAD_Y_START - 50 && v->y < ROAD_Y_START + ROAD_WIDTH + 50);
+    return (v->x > ROAD_X_START - 100 && v->x < ROAD_X_START + ROAD_WIDTH + 100 &&
+            v->y > ROAD_Y_START - 100 && v->y < ROAD_Y_START + ROAD_WIDTH + 100);
 }
 
 bool isLightRedForVehicle(Vehicle *v) {
-    return isLightRed && isNearLight(v);
-}
-
-void adjustVehicleMovementByLights(PriorityQueue *pq, Vehicle vehicles[]) {
-    for (int i = 0; i < MAX_VEHICLES; i++) {
-        if (vehicles[i].id == -1) continue;
-        Vehicle *v = &vehicles[i];
-        bool inIntersection = (v->x >= ROAD_X_START && v->x <= ROAD_X_START + ROAD_WIDTH &&
-                               v->y >= ROAD_Y_START && v->y <= ROAD_Y_START + ROAD_WIDTH);
-        if (isLightRedForVehicle(v) && !inIntersection) {
-            v->speed = 0;
-        } else {
-            v->speed = VEHICLE_SPEED;
-        }
+    if (!isNearLight(v)) return false;
+    
+    // Check if vehicle is approaching the intersection
+    bool approachingIntersection = false;
+    
+    switch (v->direction) {
+    case 0: // Down
+        approachingIntersection = (v->y < ROAD_Y_START);
+        break;
+    case 1: // Right
+        approachingIntersection = (v->x < ROAD_X_START);
+        break;
+    case 2: // Up
+        approachingIntersection = (v->y > ROAD_Y_START + ROAD_WIDTH);
+        break;
+    case 3: // Left
+        approachingIntersection = (v->x > ROAD_X_START + ROAD_WIDTH);
+        break;
     }
+    
+    // If the light is red and the vehicle is approaching the intersection, it should stop
+    return isLightRed && approachingIntersection;
 }
 
 int main() {
@@ -254,19 +221,49 @@ int main() {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) quit = true;
         }
+        
         Uint32 currentTime = SDL_GetTicks();
         Uint32 elapsed = currentTime - lastBlink;
+        
+        // Handle traffic light changes
         if (isLightRed && elapsed > RED_DURATION) {
             isLightRed = false;
             lastBlink = currentTime;
             clearingStartTime = currentTime;
+            printf("Traffic light changed to GREEN\n");
         } else if (!isLightRed && elapsed > GREEN_DURATION) {
-            isLightRed = false;
+            isLightRed = true;
             lastBlink = currentTime;
+            printf("Traffic light changed to RED\n");
         }
+        
+        // Generate new vehicles from the center
         generateVehicle(&pq, vehicles, &lastVehicleId);
+        
+        // Handle priority roads
+        handlePriorityRoads(&pq, vehicles);
+        
+        // Update vehicle positions
         updateVehicles(&pq, vehicles);
-        adjustVehicleMovementByLights(&pq, vehicles);
+        
+        // Check if any vehicles need to be redirected
+        for (int i = 0; i < MAX_VEHICLES; i++) {
+            if (vehicles[i].id != -1) {
+                // Check if vehicle is in intersection and should redirect
+                bool inIntersection = (
+                    vehicles[i].x >= ROAD_X_START && 
+                    vehicles[i].x <= ROAD_X_START + ROAD_WIDTH &&
+                    vehicles[i].y >= ROAD_Y_START && 
+                    vehicles[i].y <= ROAD_Y_START + ROAD_WIDTH
+                );
+                
+                if (inIntersection && shouldRedirect()) {
+                    redirectVehicle(&vehicles[i]);
+                }
+            }
+        }
+        
+        // Render everything
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         renderLane(renderer);
@@ -274,6 +271,7 @@ int main() {
         renderVehicles(renderer);
         renderTrafficLights(renderer);
         SDL_RenderPresent(renderer);
+        
         frameTime = SDL_GetTicks() - frameStart;
         if (frameTime < FRAME_DELAY) SDL_Delay(FRAME_DELAY - frameTime);
     }
