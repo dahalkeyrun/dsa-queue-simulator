@@ -1,0 +1,17 @@
+V7,00:05:39,AL2,left
+V9,00:05:43,AL1,left
+V15,00:05:55,AL3,straight
+V26,00:06:17,AL2,straight
+V38,00:06:41,AL4,straight
+V40,00:06:45,AL3,straight
+V44,00:06:53,AL2,left
+V46,00:06:57,AL2,straight
+V48,00:07:01,AL1,straight
+V51,00:07:07,AL4,straight
+V52,00:07:09,AL4,straight
+V60,00:07:26,AL3,straight
+V61,00:07:28,AL4,straight
+V71,00:07:48,AL3,straight
+V72,00:07:50,AL3,straight
+V76,00:07:58,AL1,straight
+V80,00:08:06,AL1,left

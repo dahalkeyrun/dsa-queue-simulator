@@ -1,25 +1,24 @@
 #include "queue.h"
 #include <stdlib.h>
 #include <math.h>
+#include <stdio.h>
 
-// Initialize the priority queue
 void initPriorityQueue(PriorityQueue *pq, int maxSize) {
     pq->data = (LanePriority *)malloc(sizeof(LanePriority) * maxSize);
     pq->size = 0;
     pq->capacity = maxSize;
 }
 
-// Enqueue an item into the priority queue
 void enqueuePriority(PriorityQueue *pq, LanePriority item) {
-    if (pq->size == pq->capacity) return;
+    if (pq->size == pq->capacity)
+        return;
     pq->data[pq->size++] = item;
 }
 
-// Dequeue the highest priority item from the queue
-LanePriority dequeuePriority(PriorityQueue *pq, Vehicle vehicles[]) {
+LanePriority dequeuePriority(PriorityQueue *pq) {
     if (pq->size == 0) {
-        // Return an invalid priority if queue is empty
-        return (LanePriority){'X', -1, -1};
+        // Return an invalid record if the queue is empty
+        return (LanePriority){ 'X', -1, -1 };
     }
     
     // Find the highest priority lane
@@ -30,22 +29,18 @@ LanePriority dequeuePriority(PriorityQueue *pq, Vehicle vehicles[]) {
         }
     }
     
-    // Get the highest priority item
     LanePriority item = pq->data[maxPriorityIndex];
-    
-    // Remove the item from the queue by replacing it with the last item
+    // Remove the item by replacing it with the last element
     pq->data[maxPriorityIndex] = pq->data[pq->size - 1];
     pq->size--;
     
     return item;
 }
 
-// Check if the priority queue is empty
 bool isEmptyPriority(PriorityQueue *pq) {
     return pq->size == 0;
 }
 
-// Update the priority of a specific lane in the queue
 void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority) {
     for (int i = 0; i < pq->size; i++) {
         if (pq->data[i].road == road && pq->data[i].lane == lane) {
@@ -55,108 +50,105 @@ void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority) {
     }
 }
 
-// Count the number of waiting vehicles on a specific road
 int countWaitingVehicles(Vehicle vehicles[], char road) {
     int count = 0;
     for (int i = 0; i < MAX_VEHICLES; i++) {
-        if (vehicles[i].id != -1 && vehicles[i].road == road && vehicles[i].speed == 0) {
+        if (vehicles[i].id != -1 && vehicles[i].road == road && vehicles[i].speed == 0)
             count++;
-        }
     }
     return count;
 }
 
-// Handle priority roads based on vehicle count
-void handlePriorityRoads(PriorityQueue *pq, Vehicle vehicles[]) {
-    int waitingA = countWaitingVehicles(vehicles, 'A');
-    int waitingB = countWaitingVehicles(vehicles, 'B');
-    
-    static char priorityRoad = 'X'; // No priority initially
-    
-    if (priorityRoad == 'X') {
-        // Check if any road needs priority
-        if (waitingA > PRIORITY_THRESHOLD) {
-            priorityRoad = 'A';
-            printf("Road A has high priority (waiting vehicles: %d)\n", waitingA);
-        } else if (waitingB > PRIORITY_THRESHOLD) {
-            priorityRoad = 'B';
-            printf("Road B has high priority (waiting vehicles: %d)\n", waitingB);
-        }
-    } else {
-        // Check if priority can be lifted
-        if ((priorityRoad == 'A' && waitingA < NORMAL_THRESHOLD) ||
-            (priorityRoad == 'B' && waitingB < NORMAL_THRESHOLD)) {
-            printf("Returning to normal conditions (Road %c waiting vehicles: %d)\n", 
-                  priorityRoad, priorityRoad == 'A' ? waitingA : waitingB);
-            priorityRoad = 'X';
-        }
+// New helper: count waiting vehicles for a specific road and lane
+int countWaitingVehiclesLane(Vehicle vehicles[], char road, int lane) {
+    int count = 0;
+    for (int i = 0; i < MAX_VEHICLES; i++) {
+        if (vehicles[i].id != -1 && vehicles[i].road == road && vehicles[i].lane == lane && vehicles[i].speed == 0)
+            count++;
     }
+    return count;
+}
+
+void handlePriorityRoads(PriorityQueue *pq, Vehicle vehicles[]) {
+    // For Road A, specifically lane 2 (AL2) has priority conditions
+    int waitingAL2 = countWaitingVehiclesLane(vehicles, 'A', 2);
     
-    // Update priorities in the queue
+    // Thresholds for priority adjustments (these can be tuned)
+    const int PRIORITY_THRESHOLD = 10;
+    const int NORMAL_THRESHOLD = 5;
+    
     for (int i = 0; i < pq->size; i++) {
-        if (pq->data[i].road == priorityRoad) {
-            pq->data[i].priority = 10; // High priority
+        if (pq->data[i].road == 'A' && pq->data[i].lane == 2) {
+            if (waitingAL2 > PRIORITY_THRESHOLD)
+                pq->data[i].priority = 10; // High priority
+            else if (waitingAL2 < NORMAL_THRESHOLD)
+                pq->data[i].priority = 1;  // Normal priority
         } else {
-            pq->data[i].priority = 1;  // Normal priority
+            pq->data[i].priority = 1;
         }
     }
 }
 
-// Update vehicle positions based on the priority queue
-void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]) {
-    int laneWidth = ROAD_WIDTH / 3;
-    int verticalLaneCenters[3] = {
-        ROAD_X_START + (0 * laneWidth) + (laneWidth / 2),
-        ROAD_X_START + (1 * laneWidth) + (laneWidth / 2),
-        ROAD_X_START + (2 * laneWidth) + (laneWidth / 2)
-    };
-    int horizontalLaneCenters[3] = {
-        ROAD_Y_START + (0 * laneWidth) + (laneWidth / 2),
-        ROAD_Y_START + (1 * laneWidth) + (laneWidth / 2),
-        ROAD_Y_START + (2 * laneWidth) + (laneWidth / 2)
-    };
-
-    // Process all vehicles regardless of queue
+void updateVehicles(Vehicle vehicles[]) {
+    // Update vehicle positions based on their direction and lane
+    // Assuming 4 lanes per road; horizontal roads (A & C) use ROAD_Y_START,
+    // vertical roads (B & D) use ROAD_X_START.
+    int hLaneWidth = ROAD_HEIGHT / 4; // For horizontal roads (A, C)
+    int vLaneWidth = ROAD_WIDTH / 4;  // For vertical roads (B, D)
+    
+    // Precompute lane centers for 4 lanes (0-indexed)
+    int horizontalLaneCenters[4];
+    int verticalLaneCenters[4];
+    for (int i = 0; i < 4; i++) {
+        horizontalLaneCenters[i] = ROAD_Y_START + (i * hLaneWidth) + (hLaneWidth / 2);
+        verticalLaneCenters[i] = ROAD_X_START + (i * vLaneWidth) + (vLaneWidth / 2);
+    }
+    
     for (int i = 0; i < MAX_VEHICLES; i++) {
-        if (vehicles[i].id == -1) continue;
+        if (vehicles[i].id == -1)
+            continue;
         
         Vehicle *v = &vehicles[i];
         
-        // Check if vehicle should be stopped at red light
+        // Determine if the vehicle should stop at a red light.
+        // (isLightRedForVehicle is assumed to be defined elsewhere.)
         bool inIntersection = (v->x >= ROAD_X_START && v->x <= ROAD_X_START + ROAD_WIDTH &&
-                              v->y >= ROAD_Y_START && v->y <= ROAD_Y_START + ROAD_WIDTH);
-        
-        if (isLightRedForVehicle(v) && !inIntersection) {
+                               v->y >= ROAD_Y_START && v->y <= ROAD_Y_START + ROAD_HEIGHT);
+        if (isLightRedForVehicle(v) && !inIntersection)
             v->speed = 0;
-        } else {
+        else
             v->speed = VEHICLE_SPEED;
-        }
-
-        // Update vehicle position based on direction
+        
+        // Update positions based on the vehicle's direction:
+        // 0 = Down (Road B), 1 = Right (Road A), 2 = Up (Road D), 3 = Left (Road C)
         switch (v->direction) {
-        case 0: // Down
-            v->x = verticalLaneCenters[v->lane] - (VEHICLE_WIDTH / 2); // Lock x
-            v->y += v->speed;
-            if (v->y > SCREEN_HEIGHT) v->id = -1;
-            break;
-        case 1: // Right
-            v->x += v->speed;
-            v->y = horizontalLaneCenters[v->lane] - (VEHICLE_HEIGHT / 2); // Lock y
-            if (v->x > SCREEN_WIDTH) v->id = -1;
-            break;
-        case 2: // Up
-            v->x = verticalLaneCenters[v->lane] - (VEHICLE_WIDTH / 2); // Lock x
-            v->y -= v->speed;
-            if (v->y + VEHICLE_HEIGHT < 0) v->id = -1;
-            break;
-        case 3: // Left
-            v->x -= v->speed;
-            v->y = horizontalLaneCenters[v->lane] - (VEHICLE_HEIGHT / 2); // Lock y
-            if (v->x + VEHICLE_WIDTH < 0) v->id = -1;
-            break;
+            case 0: // Down (Road B)
+                v->x = verticalLaneCenters[v->lane - 1] - (VEHICLE_WIDTH / 2);
+                v->y += v->speed;
+                if (v->y > SCREEN_HEIGHT)
+                    v->id = -1;
+                break;
+            case 1: // Right (Road A)
+                v->x += v->speed;
+                v->y = horizontalLaneCenters[v->lane - 1] - (VEHICLE_HEIGHT / 2);
+                if (v->x > SCREEN_WIDTH)
+                    v->id = -1;
+                break;
+            case 2: // Up (Road D)
+                v->x = verticalLaneCenters[v->lane - 1] - (VEHICLE_WIDTH / 2);
+                v->y -= v->speed;
+                if (v->y + VEHICLE_HEIGHT < 0)
+                    v->id = -1;
+                break;
+            case 3: // Left (Road C)
+                v->x -= v->speed;
+                v->y = horizontalLaneCenters[v->lane - 1] - (VEHICLE_HEIGHT / 2);
+                if (v->x + VEHICLE_WIDTH < 0)
+                    v->id = -1;
+                break;
         }
         
-        // Update the vehicle's rect for rendering
+        // Update the vehicle's rendering rectangle
         v->rect.x = (int)v->x;
         v->rect.y = (int)v->y;
     }

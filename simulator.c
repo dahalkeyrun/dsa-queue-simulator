@@ -9,18 +9,23 @@
 #include <math.h>
 
 #define FRAME_DELAY (1000 / DESIRED_FPS)
-#define GREEN_DURATION 8000
-#define RED_DURATION 8000
+#define TIME_PER_VEHICLE 1000  // milliseconds allocated per vehicle to pass
 
-// Define global variables
+// Global simulation variables
 Vehicle vehicles[MAX_VEHICLES];
 int lastVehicleId = 0;
 SDL_Texture *carTexture = NULL;
 TrafficLight trafficLights[8];
 Uint32 lastBlink = 0;
-bool isLightRed = true;
 Uint32 lastSpawnTime = 0;
 Uint32 clearingStartTime = 0;
+
+// New globals for managing the intersection light state:
+char currentGreenRoad = 'A';
+Uint32 currentGreenStartTime = 0;
+Uint32 currentGreenDuration = 4000; // Default duration (ms)
+int currentRoadIndex = 0;
+char roads[4] = {'A', 'B', 'C', 'D'};
 
 // Function prototypes
 void renderZebraCrossing(SDL_Renderer *renderer);
@@ -28,46 +33,59 @@ void renderLane(SDL_Renderer *renderer);
 void renderTrafficLights(SDL_Renderer *renderer);
 void renderVehicles(SDL_Renderer *renderer);
 bool isNearLight(Vehicle *v);
-bool isLightRedForVehicle(Vehicle *v);
+
+// Update isLightRedForVehicle so that vehicles on the current green road have a green light.
+bool isLightRedForVehicle(Vehicle *v) {
+    if (!isNearLight(v))
+        return false;
+    // If the vehicle's road is currently green, then its light is not red.
+    if (v->road == currentGreenRoad)
+        return false;
+    // Otherwise, if the vehicle is approaching the intersection, return true.
+    bool approachingIntersection = false;
+    switch (v->direction) {
+        case 0: approachingIntersection = (v->y < ROAD_Y_START); break;  // Down: hasn't reached intersection
+        case 1: approachingIntersection = (v->x < ROAD_X_START); break;  // Right: hasn't reached intersection
+        case 2: approachingIntersection = (v->y > ROAD_Y_START + ROAD_WIDTH); break; // Up: not reached
+        case 3: approachingIntersection = (v->x > ROAD_X_START + ROAD_WIDTH); break; // Left: not reached
+    }
+    return approachingIntersection;
+}
 
 void renderZebraCrossing(SDL_Renderer *renderer) {
     for (int i = 0; i < ROAD_WIDTH; i += (ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP)) {
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
-        SDL_Rect topWhiteStripe = {ROAD_X_START + i, ROAD_Y_START - ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &topWhiteStripe);
-        SDL_Rect bottomWhiteStripe = {ROAD_X_START + i, ROAD_Y_START + ROAD_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &bottomWhiteStripe);
-        SDL_Rect leftWhiteStripe = {ROAD_X_START - ZEBRA_CROSSING_WIDTH, ROAD_Y_START + i, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &leftWhiteStripe);
-        SDL_Rect rightWhiteStripe = {ROAD_X_START + ROAD_WIDTH, ROAD_Y_START + i, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &rightWhiteStripe);
-
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black
-        SDL_Rect topBlackStripe = {ROAD_X_START + i + ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP, ROAD_Y_START - ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &topBlackStripe);
-        SDL_Rect bottomBlackStripe = {ROAD_X_START + i + ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP, ROAD_Y_START + ROAD_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &bottomBlackStripe);
-        SDL_Rect leftBlackStripe = {ROAD_X_START - ZEBRA_CROSSING_WIDTH, ROAD_Y_START + i + ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &leftBlackStripe);
-        SDL_Rect rightBlackStripe = {ROAD_X_START + ROAD_WIDTH, ROAD_Y_START + i + ZEBRA_CROSSING_WIDTH + ZEBRA_CROSSING_GAP, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
-        SDL_RenderFillRect(renderer, &rightBlackStripe);
+        // Top and bottom stripes
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_Rect topStripe = {ROAD_X_START + i, ROAD_Y_START - ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
+        SDL_RenderFillRect(renderer, &topStripe);
+        SDL_Rect bottomStripe = {ROAD_X_START + i, ROAD_Y_START + ROAD_WIDTH, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
+        SDL_RenderFillRect(renderer, &bottomStripe);
+        
+        // Left and right stripes
+        SDL_Rect leftStripe = {ROAD_X_START - ZEBRA_CROSSING_WIDTH, ROAD_Y_START + i, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
+        SDL_RenderFillRect(renderer, &leftStripe);
+        SDL_Rect rightStripe = {ROAD_X_START + ROAD_WIDTH, ROAD_Y_START + i, ZEBRA_CROSSING_WIDTH, ZEBRA_CROSSING_WIDTH};
+        SDL_RenderFillRect(renderer, &rightStripe);
     }
 }
 
 void renderLane(SDL_Renderer *renderer) {
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Gray color for road fill
+    // Render road fills
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
     SDL_Rect horizontalRoad = {ROAD_X_START, 0, ROAD_WIDTH, SCREEN_HEIGHT};
     SDL_Rect verticalRoad = {0, ROAD_Y_START, SCREEN_WIDTH, ROAD_WIDTH};
     SDL_RenderFillRect(renderer, &horizontalRoad);
     SDL_RenderFillRect(renderer, &verticalRoad);
-
-    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255); // Darker gray for border
+    
+    // Render borders
+    SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
     SDL_Rect horizontalBorder = {ROAD_X_START - 2, -2, ROAD_WIDTH + 4, SCREEN_HEIGHT + 4};
     SDL_Rect verticalBorder = {-2, ROAD_Y_START - 2, SCREEN_WIDTH + 4, ROAD_WIDTH + 4};
     SDL_RenderDrawRect(renderer, &horizontalBorder);
     SDL_RenderDrawRect(renderer, &verticalBorder);
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // Bright yellow for lane markings
+    
+    // Render lane markings (using dashed lines)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
     int dash = 30, gap = 15;
     for (int i = 1; i < 3; i++) {
         int xLane = ROAD_X_START + (ROAD_WIDTH / 3) * i;
@@ -88,37 +106,52 @@ void renderLane(SDL_Renderer *renderer) {
 }
 
 void renderTrafficLights(SDL_Renderer *renderer) {
-    for (int i = 0; i < 8; i += 2) {
-        int lightIndex = isLightRed ? 0 : 1;
-        float x = trafficLights[i + lightIndex].x;
-        float y = trafficLights[i + lightIndex].y;
-        if (isLightRed) SDL_SetRenderDrawColor(renderer, 255, 50, 50, 100);
-        else SDL_SetRenderDrawColor(renderer, 50, 255, 50, 100);
-        for (int r = LIGHT_SIZE + 5; r > LIGHT_SIZE; r -= 2) {
-            SDL_Rect glow = {(int)x - r / 2, (int)y - r / 2, r, r};
-            SDL_RenderFillRect(renderer, &glow);
+    // Assume:
+    //   Lights 0-1 belong to Road A,
+    //   Lights 2-3 to Road B,
+    //   Lights 4-5 to Road C,
+    //   Lights 6-7 to Road D.
+    for (int i = 0; i < 8; i++) {
+        char lightRoad;
+        if (i < 2)
+            lightRoad = 'A';
+        else if (i < 4)
+            lightRoad = 'B';
+        else if (i < 6)
+            lightRoad = 'C';
+        else
+            lightRoad = 'D';
+
+        // Set color based on whether this light's road is currently green.
+        if (lightRoad == currentGreenRoad) {
+            SDL_SetRenderDrawColor(renderer, 50, 255, 50, 255); // Green
+        } else {
+            SDL_SetRenderDrawColor(renderer, 255, 50, 50, 255); // Red
         }
+        int x = (int)trafficLights[i].x;
+        int y = (int)trafficLights[i].y;
+        SDL_Rect lightRect = {x - LIGHT_SIZE/2, y - LIGHT_SIZE/2, LIGHT_SIZE, LIGHT_SIZE};
+        SDL_RenderFillRect(renderer, &lightRect);
+        
+        // Draw border
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_Rect border = {(int)x - LIGHT_SIZE / 2 - 2, (int)y - LIGHT_SIZE / 2 - 2, LIGHT_SIZE + 4, LIGHT_SIZE + 4};
+        SDL_Rect border = {x - LIGHT_SIZE/2 - 2, y - LIGHT_SIZE/2 - 2, LIGHT_SIZE + 4, LIGHT_SIZE + 4};
         SDL_RenderDrawRect(renderer, &border);
-        if (isLightRed) SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        else SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-        SDL_Rect light = {(int)x - LIGHT_SIZE / 2, (int)y - LIGHT_SIZE / 2, LIGHT_SIZE, LIGHT_SIZE};
-        SDL_RenderFillRect(renderer, &light);
     }
 }
 
 void renderVehicles(SDL_Renderer *renderer) {
     for (int i = 0; i < MAX_VEHICLES; i++) {
         Vehicle *v = &vehicles[i];
-        if (v->id < 0) continue;
-
+        if (v->id < 0)
+            continue;
+        
         double angle = 0.0;
         switch (v->direction) {
-        case 0: angle = 180.0; break; // Down
-        case 1: angle = 90.0; break;  // Right
-        case 2: angle = 0.0; break;   // Up
-        case 3: angle = 270.0; break; // Left
+            case 0: angle = 180.0; break; // Down
+            case 1: angle = 90.0;  break; // Right
+            case 2: angle = 0.0;   break; // Up
+            case 3: angle = 270.0; break; // Left
         }
         
         if (SDL_RenderCopyEx(renderer, carTexture, NULL, &v->rect, angle, NULL, SDL_FLIP_NONE) < 0) {
@@ -130,31 +163,6 @@ void renderVehicles(SDL_Renderer *renderer) {
 bool isNearLight(Vehicle *v) {
     return (v->x > ROAD_X_START - 100 && v->x < ROAD_X_START + ROAD_WIDTH + 100 &&
             v->y > ROAD_Y_START - 100 && v->y < ROAD_Y_START + ROAD_WIDTH + 100);
-}
-
-bool isLightRedForVehicle(Vehicle *v) {
-    if (!isNearLight(v)) return false;
-    
-    // Check if vehicle is approaching the intersection
-    bool approachingIntersection = false;
-    
-    switch (v->direction) {
-    case 0: // Down
-        approachingIntersection = (v->y < ROAD_Y_START);
-        break;
-    case 1: // Right
-        approachingIntersection = (v->x < ROAD_X_START);
-        break;
-    case 2: // Up
-        approachingIntersection = (v->y > ROAD_Y_START + ROAD_WIDTH);
-        break;
-    case 3: // Left
-        approachingIntersection = (v->x > ROAD_X_START + ROAD_WIDTH);
-        break;
-    }
-    
-    // If the light is red and the vehicle is approaching the intersection, it should stop
-    return isLightRed && approachingIntersection;
 }
 
 int main() {
@@ -198,8 +206,11 @@ int main() {
     }
     SDL_FreeSurface(carSurface);
 
-    for (int i = 0; i < MAX_VEHICLES; i++) vehicles[i].id = -1;
+    // Initialize vehicles array
+    for (int i = 0; i < MAX_VEHICLES; i++)
+        vehicles[i].id = -1;
 
+    // Initialize traffic light positions (assumed positions around the intersection)
     trafficLights[0] = (TrafficLight){ROAD_X_START - LIGHT_OFFSET, ROAD_Y_START - LIGHT_OFFSET};
     trafficLights[1] = (TrafficLight){ROAD_X_START - LIGHT_OFFSET, ROAD_Y_START + LIGHT_SIZE + LIGHT_OFFSET};
     trafficLights[2] = (TrafficLight){ROAD_X_START + ROAD_WIDTH + LIGHT_OFFSET, ROAD_Y_START - LIGHT_OFFSET};
@@ -209,8 +220,14 @@ int main() {
     trafficLights[6] = (TrafficLight){ROAD_X_START + ROAD_WIDTH + LIGHT_OFFSET, ROAD_Y_START + ROAD_WIDTH + LIGHT_OFFSET};
     trafficLights[7] = (TrafficLight){ROAD_X_START + ROAD_WIDTH + LIGHT_OFFSET, ROAD_Y_START + ROAD_WIDTH - LIGHT_SIZE - LIGHT_OFFSET};
 
+    // Initialize the priority queue
     PriorityQueue pq;
     initPriorityQueue(&pq, 12);
+
+    // Initialize our green-light timer and road rotation
+    currentGreenRoad = roads[currentRoadIndex];
+    currentGreenStartTime = SDL_GetTicks();
+    currentGreenDuration = 4000; // initial default
 
     bool quit = false;
     SDL_Event e;
@@ -219,51 +236,65 @@ int main() {
     while (!quit) {
         frameStart = SDL_GetTicks();
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) quit = true;
+            if (e.type == SDL_QUIT)
+                quit = true;
         }
         
         Uint32 currentTime = SDL_GetTicks();
-        Uint32 elapsed = currentTime - lastBlink;
         
-        // Handle traffic light changes
-        if (isLightRed && elapsed > RED_DURATION) {
-            isLightRed = false;
-            lastBlink = currentTime;
-            clearingStartTime = currentTime;
-            printf("Traffic light changed to GREEN\n");
-        } else if (!isLightRed && elapsed > GREEN_DURATION) {
-            isLightRed = true;
-            lastBlink = currentTime;
-            printf("Traffic light changed to RED\n");
+        // --- Traffic Light Control: Determine which road gets the green light ---
+        if (currentTime - currentGreenStartTime >= currentGreenDuration) {
+            // First, update the priority queue for any high-priority lane.
+            handlePriorityRoads(&pq, vehicles);
+            bool priorityFound = false;
+            // Check if any lane in the priority queue has the high priority value.
+            for (int i = 0; i < pq.size; i++) {
+                if (pq.data[i].priority == 10) {
+                    currentGreenRoad = pq.data[i].road;
+                    priorityFound = true;
+                    break;
+                }
+            }
+            // If no priority lane is found, use round-robin rotation.
+            if (!priorityFound) {
+                currentRoadIndex = (currentRoadIndex + 1) % 4;
+                currentGreenRoad = roads[currentRoadIndex];
+            }
+            // Determine how many vehicles are waiting on the current green road.
+            int vehiclesToServe = countWaitingVehicles(vehicles, currentGreenRoad);
+            if (vehiclesToServe <= 0)
+                vehiclesToServe = 2;  // minimum duration if no vehicles are waiting
+            currentGreenDuration = vehiclesToServe * TIME_PER_VEHICLE;
+            currentGreenStartTime = currentTime;
+            printf("Green light for Road %c for %d ms (waiting vehicles: %d)\n",
+                   currentGreenRoad, currentGreenDuration, vehiclesToServe);
         }
         
-        // Generate new vehicles from the center
+        // --- Traffic Generation and Queue Management ---
         generateVehicle(&pq, vehicles, &lastVehicleId);
-        
-        // Handle priority roads
         handlePriorityRoads(&pq, vehicles);
         
-        // Update vehicle positions
-        updateVehicles(&pq, vehicles);
+        // --- Update Vehicle Positions ---
+        // updateVehicles now uses our updated isLightRedForVehicle logic.
+        updateVehicles(vehicles);
         
-        // Check if any vehicles need to be redirected
+        // --- Vehicle Redirection at Intersection ---
         for (int i = 0; i < MAX_VEHICLES; i++) {
             if (vehicles[i].id != -1) {
-                // Check if vehicle is in intersection and should redirect
+                // Check if the vehicle is within the intersection bounds.
                 bool inIntersection = (
                     vehicles[i].x >= ROAD_X_START && 
                     vehicles[i].x <= ROAD_X_START + ROAD_WIDTH &&
                     vehicles[i].y >= ROAD_Y_START && 
                     vehicles[i].y <= ROAD_Y_START + ROAD_WIDTH
                 );
-                
                 if (inIntersection && shouldRedirect()) {
                     redirectVehicle(&vehicles[i]);
                 }
             }
         }
         
-        // Render everything
+        // --- Rendering ---
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         renderLane(renderer);
@@ -273,7 +304,8 @@ int main() {
         SDL_RenderPresent(renderer);
         
         frameTime = SDL_GetTicks() - frameStart;
-        if (frameTime < FRAME_DELAY) SDL_Delay(FRAME_DELAY - frameTime);
+        if (frameTime < FRAME_DELAY)
+            SDL_Delay(FRAME_DELAY - frameTime);
     }
 
     free(pq.data);

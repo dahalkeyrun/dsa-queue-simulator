@@ -17,10 +17,11 @@
 #define ZEBRA_CROSSING_GAP 10
 #define VEHICLE_SPEED 2.0f
 #define ROAD_WIDTH 400
+#define ROAD_HEIGHT 400            // Added definition for ROAD_HEIGHT
 #define ROAD_X_START ((SCREEN_WIDTH - ROAD_WIDTH) / 2)
 #define ROAD_Y_START ((SCREEN_HEIGHT - ROAD_WIDTH) / 2)
-#define PRIORITY_THRESHOLD 10
-#define NORMAL_THRESHOLD 5
+#define QUEUE_PRIORITY_THRESHOLD 10  // Renamed to avoid conflict with local variables
+#define QUEUE_NORMAL_THRESHOLD 5       // Renamed to avoid conflict with local variables
 #define CLEARING_TIME 2000
 #define MIN_VEHICLE_SPACING 100
 
@@ -37,6 +38,8 @@ typedef struct Vehicle {
     int direction;
     SDL_Rect rect;
     bool isPriority;
+    Uint32 arrivalTime;    // Record the time the vehicle is generated
+    bool turningLeft;      // Indicates if the vehicle intends to take a left turn
 } Vehicle;
 
 typedef struct {
@@ -64,12 +67,12 @@ extern Uint32 clearingStartTime;
 // Function prototypes
 void initPriorityQueue(PriorityQueue *pq, int maxSize);
 void enqueuePriority(PriorityQueue *pq, LanePriority item);
-LanePriority dequeuePriority(PriorityQueue *pq, Vehicle vehicles[]);
+LanePriority dequeuePriority(PriorityQueue *pq);
 bool isEmptyPriority(PriorityQueue *pq);
 void updatePriority(PriorityQueue *pq, char road, int lane, int newPriority);
 
 void generateVehicle(PriorityQueue *pq, Vehicle vehicles[], int *lastVehicleId);
-void updateVehicles(PriorityQueue *pq, Vehicle vehicles[]);
+void updateVehicles(Vehicle vehicles[]);
 void adjustVehicleMovementByLights(PriorityQueue *pq, Vehicle vehicles[]);
 bool isNearLight(Vehicle *v);
 bool isLightRedForVehicle(Vehicle *v);
@@ -80,6 +83,7 @@ bool shouldRedirect();
 
 // Priority road management
 int countWaitingVehicles(Vehicle vehicles[], char road);
+int countWaitingVehiclesLane(Vehicle vehicles[], char road, int lane);
 void handlePriorityRoads(PriorityQueue *pq, Vehicle vehicles[]);
 
 #endif
