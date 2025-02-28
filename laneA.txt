@@ -393,3 +393,4 @@ V1282,13:36:53,AL1,straight
 V1284,13:36:57,AL1,straight
 V4,19:53:33,AL1,straight
 V7,19:53:39,AL3,left
+V6,19:57:42,AL4,straight

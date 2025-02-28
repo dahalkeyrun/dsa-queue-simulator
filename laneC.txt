@@ -386,3 +386,6 @@ V1279,13:36:47,CL2,straight
 V1281,13:36:51,CL2,straight
 V1283,13:36:55,CL1,straight
 V1287,13:37:03,CL4,straight
+V2,19:57:34,CL2,left
+V4,19:57:38,CL3,straight
+V5,19:57:40,CL1,straight

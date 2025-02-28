@@ -376,3 +376,5 @@ V2,19:53:29,DL2,left
 V3,19:53:31,DL4,straight
 V5,19:53:35,DL4,left
 V6,19:53:37,DL3,left
+V3,19:57:36,DL3,straight
+V7,19:57:44,DL4,left
